@@ -10,8 +10,9 @@ def test_each_count_appears():
     counts = json.loads((ROOT / "briefs/scan/counts.json").read_text())
     text = brief()
     for target, count in counts.items():
-        assert re.search(rf"(?<![\d,]){count}(?![\d,])", text), target
-    assert re.search(rf"(?<![\d,]){sum(counts.values())}(?![\d,])", text), "total"
+        # Anchor each count to its row of the targets table.
+        assert re.search(rf"{target}\.toml.*&\s*{count}\s*\\\\", text), target
+    assert re.search(rf"^Total &.*&\s*{sum(counts.values())}\s*\\\\", text, re.M), "total"
 
 def test_december_17_only_in_late_days_row():
     lines = [l for l in brief().splitlines() if "December 17" in l or "Dec 17" in l or "Dec. 17" in l]

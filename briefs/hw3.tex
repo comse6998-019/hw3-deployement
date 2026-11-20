@@ -428,7 +428,6 @@ HW2 event kinds and fields hold. These are the changes:
   code-action path.
 \item \textbf{\code{refused_by}.} Its value is \code{dispatcher} or
   \code{server}. HW3 has no \code{kernel} value.
-\item \textbf{\code{discovery}.} The host writes it again after each resume.
 \end{itemize}
 
 These are the changed and new invariants:
@@ -438,7 +437,7 @@ These are the changed and new invariants:
 \item \textbf{Invariant 3.} There is exactly one \code{terminal} event in the
   run, and it is the last line. A killed attempt writes no \code{terminal} event.
 \item \textbf{Invariant 5.} Work after the last checkpoint can repeat, and the
-  trace keeps both copies. An alert can have more than one \code{state_change}
+  trace keeps both copies. The grader counts the repeated work. An alert can have more than one \code{state_change}
   event with \code{alert_status}. Each one must agree with the last one for that
   alert, and the last one must agree with the row.
 \item \textbf{Invariant 7 (new).} The first event of each attempt is
@@ -510,7 +509,6 @@ guardrail failure.
   hangs with no output is not a loud failure.
 \item The commands make no model call, no Postgres write, and no MCP call. They
   cost nothing.
-\item Exit code 1 means denied. Exit code 0 means allowed.
 \end{itemize}
 
 \textbf{The test Pod.} A finished Job has no container for \code{kubectl exec},
@@ -555,8 +553,8 @@ MCP Pod delete: \code{kubectl delete pod <mcp pod>} & The Deployment makes a new
 
 % OPEN: feasibility task 5. The PID of the agent for kill -9 has no result on the build day.
 The process kill names \code{<agent pid>}. The kernel ignores a \code{SIGKILL}
-that a process in the container sends to PID 1. So \code{kill -9 1} kills the
-agent only if a test shows it. Staff publish the exact command by December 4.
+that a process in the container sends to PID 1. \code{kill -9 1} works only if the
+agent is not PID 1. Staff publish the exact command by December 4.
 
 \subsection{Schedule}\label{sec:schedule}
 
@@ -731,10 +729,13 @@ spec:
   podSelector: {matchLabels: {app: probe}}
   policyTypes: [Egress]
 EOF
+kubectl wait --for=condition=Ready pod/probe --timeout=60s
 kubectl exec probe -- nc -z -w 5 kubernetes.default.svc 443 && echo "NOT ENFORCED"
+kubectl delete pod/probe networkpolicy/deny-all-egress
 \end{minted}
 
-The \code{nc} command must fail. A DNS failure is also a denial, because the
+Start the check only after \code{kubectl wait} succeeds. Before that, a
+failure of \code{kubectl exec} is not a denial. The \code{nc} command must fail. A DNS failure is also a denial, because the
 policy denies DNS too.
 
 \subsection{Resources}\label{sec:resources}
