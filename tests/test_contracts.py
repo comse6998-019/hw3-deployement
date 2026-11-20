@@ -3,6 +3,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def schema(name): return json.loads((ROOT / f"{name}.schema.json").read_text())
 def validator(name): return jsonschema.Draft202012Validator(schema(name), format_checker=jsonschema.FormatChecker())
 def load_config(): return tomllib.loads((ROOT / "examples/config.example.toml").read_text())
+def load_report(): return json.loads((ROOT / "examples/report.example.json").read_text())
+def unique_alert_ids(report):
+    ids = [row["alert_id"] for row in report["alerts"]]
+    return len(ids) == len(set(ids))
 def errors_without(key):
     bad = {k: v for k, v in load_config().items() if k != key}
     return list(validator("config").iter_errors(bad))
@@ -44,3 +48,16 @@ def test_scan_blocks_match_enum():
 def test_config_rejects_changed_scan_block():
     cfg = load_config(); cfg["scan"] = copy.deepcopy(cfg["scan"]); cfg["scan"]["max_alerts"] = 501
     assert list(validator("config").iter_errors(cfg))
+
+
+def test_report_example_validates(): validator("report").validate(load_report())
+
+def test_report_needs_run_id():
+    rep = load_report(); del rep["run_id"]
+    assert list(validator("report").iter_errors(rep))
+
+def test_report_example_alert_ids_unique(): assert unique_alert_ids(load_report())
+
+def test_duplicate_alert_id_detected():
+    rep = load_report(); rep["alerts"][1] = copy.deepcopy(rep["alerts"][0])
+    assert unique_alert_ids(rep) is False
