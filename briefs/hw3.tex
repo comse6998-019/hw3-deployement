@@ -20,9 +20,9 @@
 \usepackage{etoolbox}
 \BeforeBeginEnvironment{minted}{\par\smallskip\noindent\begin{minipage}{\linewidth}}
 \AfterEndEnvironment{minted}{\end{minipage}\par\smallskip}
-\newcommand\filelisting[3]{% title, lexer, file
+\newcommand\filelisting[4][]{% minted options, title, lexer, file
   \par\smallskip\noindent\begin{minipage}{\linewidth}%
-  \centerline{\small #1}\smallskip\inputminted{#2}{#3}\end{minipage}\par\smallskip}
+  \centerline{\small #2}\smallskip\inputminted[#1]{#3}{#4}\end{minipage}\par\smallskip}
 \newtcolorbox{mustbox}[1]{enhanced,breakable,colback=red!3,colframe=red!60!black,
   title={#1},fonttitle=\bfseries}
 % Long listings are floats. One float can take most of a page and share it with text.
@@ -115,18 +115,6 @@ team its own key, with a \$25 cap.
 The cap on the key is the hard limit.
 \code{budget.max_tokens} in the config is a soft limit, with its HW2 rules.
 
-\textbf{The teaching dates.} The lectures teach the Kubernetes topics of
-HW3 on three dates:
-\begin{itemize}
-\item \textbf{November 20.} Controllers, Pods, init containers, and Pod
-  deletes. The Pod life cycle, probes, and termination. \code{emptyDir}
-  compared with a PVC. StatefulSets and headless Services. A demo of
-  \code{PostgresSaver} after a Postgres Pod delete.
-\item \textbf{December 4.} Environment variables, ConfigMaps, and Secrets. Jobs,
-  \code{restartPolicy}, and \code{backoffLimit}. The Pod \code{securityContext}.
-\item \textbf{December 11.} CNI plugins, NetworkPolicy, Calico, and an
-  integration studio.
-\end{itemize}
 Section~\ref{sec:devpath} tells you how to start work before December 4.
 
 \section{What you build}\label{sec:build}
@@ -367,11 +355,11 @@ checkpoint can repeat (Section~\ref{sec:trace}).
 
 \section{Interface, output, trace, and ledger}\label{sec:interface}
 
-The evaluator uses your configuration to run the system without reading your
-code. The \code{[scan]} block specifies the target files. \code{[run] id} names
-the run. \code{[postgres]} and \code{[mcp]} give the two services, and
-\code{[budget]} sets the limits to check. Grading cannot proceed if your
-configuration fails \code{config.schema.json} validation.
+The HW2 interface holds, except where this section names a change. The HW2
+brief gives the rules that do not change. The schemas in this repository are
+the authority: \file{config.schema.json}, \file{report.schema.json},
+\file{trace.schema.json}, and \file{ledger.schema.json}. Grading cannot proceed
+if a file fails its schema.
 
 \subsection{Command line}\label{sec:cli}
 
@@ -380,18 +368,15 @@ your-agent --input <dir> --output <dir> --config <file>
 your-agent --config <file> --test-get-file <path>
 your-agent --config <file> --test-access-host <host:port>
 \end{minted}
-The scan command is the HW2 command. It writes \code{report.json}
-(Section~\ref{sec:output}) and \code{trace.jsonl} (Section~\ref{sec:trace}) to
-the output directory, on the \code{/work} PVC. Inside the Pod, \code{--input} is
-the copy of the allowed files on \code{/work}, not \code{/inputs}. The two test
-commands are new (Section~\ref{sec:testcmds}). Choose your own executable name in
-place of \code{your-agent} and document it in the README.
+The scan command is the HW2 command. It writes \code{report.json} and
+\code{trace.jsonl} to the output directory, on the \code{/work} PVC. Inside the
+Pod, \code{--input} is the copy of the allowed files on \code{/work}, not
+\code{/inputs}. The two test commands are new (Section~\ref{sec:testcmds}).
 
 \subsection{Config}\label{sec:config}
 
-Your agent reads the configuration file that \code{--config} names. It is a TOML
-file. After parsing, it must validate against \code{config.schema.json}. These
-are the keys:
+The config is a TOML file that validates against \code{config.schema.json}.
+These are the changes from HW2:
 
 \begin{center}
 \small
@@ -403,187 +388,71 @@ Key & Rule \\
 \code{model.provider} & \code{"openai-compatible"}. \\
 \code{model.base_url}, \code{model.name} & The university endpoint and the model name. \\
 \code{model.api_key_var} & The name of the environment variable that holds the key. Never the key. \\
-\code{budget.max_tokens} & Integer $\geq 0$: the token budget for the whole run, across all alerts. A soft limit. \\
-\code{budget.output_allowance} & Integer $\geq 1$: the maximum output tokens for each model call, sent to the provider. \\
-\code{budget.max_steps} & Integer $\geq 1$: a failsafe, separate from the token budget. \\
-\code{[run] id} & A string: the checkpoint \code{thread_id}. Staff set it at grading. \\
+\code{[run] id} & A string: the checkpoint \code{thread_id}. Staff set it from \code{HW3_RUN_ID} at each run. \\
 \code{[checkpoint] durability} & \code{"sync"}. \\
 \code{[postgres]} & \code{host}, \code{port}, \code{database}, \code{user}, and \code{password_var}. \code{password_var} names an environment variable. \\
 \code{[mcp] url} & The URL of the MCP Service, for example \code{http://mcp:8000/mcp}. \\
+\code{[agent] kind}, \code{[sandbox]} & Removed. \\
 \bottomrule
 \end{tabularx}
 \end{center}
-HW3 removes the HW2 keys \code{[agent] kind} and \code{[sandbox]}. You may add
-keys for your own settings. Read secrets from environment variables. Never put
-them in the configuration file.
-
-Staff set \code{[run] id} from the environment variable \code{HW3_RUN_ID} at
-each run (Section~\ref{sec:readme}). The base URL and the model name below are
-placeholders.
-
-\filelisting{\file{examples/config.example.toml}, a valid config for OWASP
-BenchmarkPython}{toml}{../examples/config.example.toml}
+The \code{[budget]} keys keep their HW2 rules. You may add keys for your own
+settings. Read secrets from environment variables. Never put them in the
+configuration file. \file{examples/config.example.toml} is a valid OWASP config,
+with placeholders for the base URL and the model name.
 
 \subsection{Output}\label{sec:output}
 
-Your \code{report.json} must validate against \code{report.schema.json}.
-Figure~\ref{fig:report} shows a cut-down run with 3 rows. It sets
-\code{alert_count} to 3 to match its rows. A full OWASP run has 297 rows. Its
-rationales are placeholders.
-
-Follow these rules:
+\code{report.json} keeps the HW2 rules, with three changes:
 \begin{itemize}
-\item \code{run_id} is the same string as \code{[run] id} in the config.
-\item There is exactly one row for each in-scope Bandit result. Rows are never
-  dropped or merged. \code{len(alerts)} equals \code{scan.alert_count}, the count
-  after the cap.
+\item A top-level \code{run_id} holds the same string as \code{[run] id}.
 \item \code{alert_id} keeps its HW1 form and is unique across rows. The agent
   scans the read-only \code{/inputs} copy, so the IDs do not change during a run.
-\item \code{path} and every evidence \code{path} are repository-relative POSIX
-  paths with no leading \code{./}. Bandit prints \code{./} for explicitly listed
-  files, so strip it. Rows are in order of \code{path} as a plain string, then
-  \code{line} as an integer, then \code{test_id}.
-\item \code{status} is one of \code{classified}, \code{budget_exhausted} or \code{error}.
-\item \code{label} is \code{1} or \code{0} when \code{status} is \code{classified}.
-  Otherwise it is \code{null}.
-\item \code{budget.used_tokens} is exactly the budget charge, which covers the
-  whole run as in HW1. It is \code{input + output} as the provider reported them,
-  summed over every \code{model_call}. \code{cache_read} and \code{cache_write}
-  are never charged.
-\item \code{target.commit} is the pinned commit of Section~\ref{sec:targets}.
-  Give the agent the commit through a key of your own in the config, for
-  example.
-\item Every row has a \code{remediation} object with \code{status},
-  \code{diff}, and \code{checks}, as in HW2. The \code{diff} is a unified diff,
-  or an empty string if the agent proposed no patch. The \code{checks} object
-  holds \code{applies}, \code{touches_flagged_line}, and \code{clean_rescan}.
-  Each check is \code{true}, \code{false}, or \code{null} if the check did not run.
-\item The remediation \code{status} is \code{accepted}, \code{rejected}, or
-  \code{skipped}. An accepted patch has a non-empty diff and all three checks
-  \code{true}. A rejected patch failed a check. Use \code{skipped} for every
-  alert labelled 0 or left unclassified.
+\item \code{len(alerts)} equals \code{scan.alert_count}, the count after the cap.
 \end{itemize}
+\file{examples/report.example.json} shows a cut-down run with 3 OWASP rows.
 
-\begin{figure}[t]
-\inputminted[fontsize=\scriptsize]{json}{../examples/report.example.json}
-\caption{\file{examples/report.example.json}, a cut-down run with 3 OWASP rows.}\label{fig:report}
-\end{figure}
-
-\Needspace{14\baselineskip}
 \subsection{Execution trace}\label{sec:trace}
 
-The trace records every step of a run in order. It records whether the model or
-the runtime made each decision. Implement the trace in the format below. For
-reference, see Cyberbird's \file{cyberbird/plan_and_validation/trace.py}
-(\code{Trace}, \code{EventKind}, \code{TerminalStatus}, \code{Usage}) and
-\file{cyberbird/plan_and_validation/trajectory.py}. The second file converts a
-trace into a Mermaid sequence diagram:
-\par\noindent\begin{minipage}{\linewidth}\raggedright
-\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trace.py}\\
-\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trajectory.py}
-\end{minipage}\par
-
-Write the trace as follows:
+The agent appends to \file{<out dir>/trace.jsonl} on the \code{/work} PVC. It
+flushes the file after every event, so the trace from before a kill stays. The
+HW2 event kinds and fields hold. These are the changes:
 \begin{itemize}
-\item \code{<out dir>/trace.jsonl} holds one JSON object per line. It is
-  append-only, on the \code{/work} PVC. Flush it after every event, so that the
-  trace from before a kill stays.
-\item Every event has \code{step} (an integer from 1, up by 1),
-  \code{ts} (Unix time, float), \code{run_id}, \code{alert_id} (the alert of the
-  event, or \code{null} for run-level events) and \code{kind}.
-\item \code{kind} is one of the values in the table below, or \code{discovery}
-  from the box after the table. Events may include more fields.
-\end{itemize}
-
-\begin{center}
-\small
-\begin{tabularx}{\linewidth}{@{}lp{0.25\linewidth}X@{}}
-\toprule
-\code{kind} & Written by & Fields \\
-\midrule
-\code{resume} & the runtime, once at each start, first & \code{attempt} (1 at the
+\item \textbf{New kind \code{resume}.} The runtime writes it once at each start,
+  as the first event of the attempt. Its fields are \code{attempt} (1 at the
   first start), \code{checkpoint_id} (\code{null} at the first start), and
-  \code{next_alert_id} (\code{null} if no alert remains) \\
-\code{model_call} & the node that called the model & \code{role}, \code{model},
-  \code{usage} with \code{input} and \code{output} (integers, as the provider
-  reported them. Add \code{cache_read} and \code{cache_write} if the provider
-  reports them. No summed total.) Add \code{call_id}, the ledger
-  \code{call_id} of the call. \\
-\code{tool_request} & the dispatcher & \code{tool}, \code{args} \\
-\code{tool_result} & the dispatcher & \code{tool}, \code{ok} (boolean), and
-  \code{error} when \code{ok} is false \\
-\code{routing} & the edge function that chose the next node & \code{decision},
-  \code{by} (\code{model} or \code{runtime}) \\
-\code{state_change} & any node, for updates not in the rows above & \code{node}.
-  When an alert row is final (\code{classified}, \code{error}, or
-  \code{budget_exhausted}), also \code{alert_status} and \code{label}. \\
-\code{terminal} & the runtime, once, last & \code{status} (one of your terminal
-  statuses, as in HW1), \code{usage_total} (an object with the same counters as \code{usage}) \\
-\bottomrule
-\end{tabularx}
-\end{center}
-
-Every trace must satisfy these invariants:
-\begin{enumerate}
-\item The file parses line by line, and every event has the fields for its
-  \code{kind}.
-\item \code{step} starts at 1 and goes up by exactly 1. After a restart,
-  \code{step} continues from the last line in the file.
-\item There is exactly one \code{terminal} event, at the end of the run, and it
-  is the last line. A killed attempt writes no \code{terminal} event.
-\item Each counter in \code{usage_total} equals the sum of that counter over all
-  \code{model_call} events. \code{budget.used_tokens} in \code{report.json}
-  equals exactly the sum of \code{input + output} over those events.
-  \code{cache_read} and \code{cache_write} are recorded but never charged.
-\item Work after the last checkpoint can repeat, and the trace keeps both
-  copies. Each row of \code{report.json} has at least one \code{state_change}
-  event with its \code{alert_id}, \code{alert_status}, and \code{label}. Each such
-  event must agree with the last one for that alert, and the last one must agree
-  with the row.
-\item Every \code{tool_request} is immediately followed by its \code{tool_result}
-  (the dispatcher handles one request at a time), before the next
-  \code{model_call}.
-\item The first event of each attempt is \code{resume}. The first
-  \code{resume} has \code{attempt} 1, and each later \code{resume} has the
-  \code{attempt} before it plus 1.
-\end{enumerate}
-
-Each line must validate against \code{trace.schema.json} at the repository root.
-Graders check the invariants across events separately, because a schema for one
-event cannot express them.
-
-\begin{mustbox}{HW3 trace and schema rules}
-\begin{itemize}
-\item Include \code{via} on each \code{tool_request} and \code{tool_result}. Its
-  only value is \code{mcp}.
-\item Include \code{refused_by} on each refused \code{tool_result}. Its value
-  names the layer that refused the call: \code{dispatcher} or \code{server}.
-\item After \code{tools/list}, the MCP host writes a \code{discovery} event with
-  \code{server} (the server name) and \code{tools} (the tool names offered to
-  the model). The host writes it again after each resume.
-\item For remediation, write a \code{state_change} event with
-  \code{node: remediation} and \code{checks}, which holds the three check
-  results. Do not include \code{alert_status} or \code{label} in this event.
-\item Use the HW3 versions of \code{config.schema.json},
-  \code{report.schema.json}, \code{trace.schema.json}, and
-  \code{ledger.schema.json}. The config needs \code{[run]}, \code{[checkpoint]},
-  \code{[postgres]}, and \code{[mcp]}. The trace schema accepts \code{resume}.
-  The report needs \code{run_id}.
+  \code{next_alert_id} (\code{null} if no alert remains).
+\item \textbf{\code{call_id}.} Each \code{model_call} event carries the ledger
+  \code{call_id} of the call.
+\item \textbf{\code{via}.} Its only value is \code{mcp}, because HW3 has no
+  code-action path.
+\item \textbf{\code{refused_by}.} Its value is \code{dispatcher} or
+  \code{server}. HW3 has no \code{kernel} value.
+\item \textbf{\code{discovery}.} The host writes it again after each resume.
 \end{itemize}
-\end{mustbox}
 
-\file{examples/trace.example.jsonl} shows one restart. The agent dies during a
-model call on the first alert, writes a \code{resume} event, and finishes the run.
-It is the same run as \file{examples/report.example.json} and
-\file{examples/ledger.example.jsonl}, and it meets all seven invariants.
+These are the changed and new invariants:
+\begin{itemize}
+\item \textbf{Invariant 2.} \code{step} starts at 1 and goes up by exactly 1.
+  After a restart, \code{step} continues from the last line in the file.
+\item \textbf{Invariant 3.} There is exactly one \code{terminal} event in the
+  run, and it is the last line. A killed attempt writes no \code{terminal} event.
+\item \textbf{Invariant 5.} Work after the last checkpoint can repeat, and the
+  trace keeps both copies. An alert can have more than one \code{state_change}
+  event with \code{alert_status}. Each one must agree with the last one for that
+  alert, and the last one must agree with the row.
+\item \textbf{Invariant 7 (new).} The first event of each attempt is
+  \code{resume}. The first \code{resume} has \code{attempt} 1. Each later
+  \code{resume} has the \code{attempt} before it plus 1.
+\end{itemize}
 
-\filelisting{\file{examples/trace.example.jsonl}}{json}{../examples/trace.example.jsonl}
+\filelisting[fontsize=\scriptsize]{\file{examples/trace.example.jsonl}: one kill during a model call,
+then a resume}{json}{../examples/trace.example.jsonl}
 
 \subsection{Ledger}\label{sec:ledgerfmt}
 
 Export the ledger table as JSON Lines, one row per line, in the order of
-\code{ts}. Each line must validate against
-\file{ledger.schema.json}.
+\code{ts}. Each line must validate against \file{ledger.schema.json}.
 
 \begin{center}
 \small
@@ -602,18 +471,16 @@ Field & Rule \\
 \end{tabularx}
 \end{center}
 
-\textbf{Open rows.} An open row is a \code{call_started} row with no
-\code{call_finished} row for the same \code{call_id}. An open row is never
-charged, and it has no \code{model_call} event in the trace.
+\textbf{Open rows.} An open row has no model charge and no \code{model_call}
+event in the trace.
 
 \textbf{Reconciliation.} The sum of \code{input + output} over the
 \code{call_finished} rows equals \code{budget.used_tokens} in \code{report.json}.
 Each \code{call_finished} row has one \code{model_call} event with the same
-\code{call_id} and \code{usage}.
+\code{call_id} and \code{usage}. In the example, \code{call-0002} is open,
+because the kill came during that call. The three example files show one run.
 
-In the example, \code{call-0002} is open. The kill came during that call.
-
-\filelisting{\file{examples/ledger.example.jsonl}}{json}{../examples/ledger.example.jsonl}
+\filelisting[fontsize=\scriptsize]{\file{examples/ledger.example.jsonl}}{json}{../examples/ledger.example.jsonl}
 
 \section{Test commands}\label{sec:testcmds}
 
@@ -636,13 +503,6 @@ Command & Action & Expected loud failure in Kubernetes \\
 \code{denied: <ERRNO or TIMEOUT> <detail>}, and exit with code 1. If the action
 succeeds, print \code{allowed: <detail>} and exit with code 0. That result is a
 guardrail failure.
-
-\begin{minted}{text}
-$ your-agent --config /config/config.toml --test-get-file /inputs/expectedresults-0.1.csv
-denied: ENOENT /inputs/expectedresults-0.1.csv
-$ your-agent --config /config/config.toml --test-access-host 203.0.113.7:443
-allowed: connected to 203.0.113.7:443
-\end{minted}
 
 \textbf{Rules.}
 \begin{itemize}
@@ -801,106 +661,39 @@ run the two test commands in your test Pod.
 
 \section{README}\label{sec:readme}
 
-Staff use your \code{README.md} to deploy your stack from a fresh clone, with no
-other help. Staff deploy on a staff laptop and use only the files in your
-repository. Document the following:
+Staff deploy your stack on a staff laptop from a fresh clone, with your
+\code{README.md} and no other help. The README gives the tools and their
+versions, and the names (never the values) of the environment variables. It
+gives the exact commands, in order, so that staff can do these steps:
 \begin{enumerate}
-\item \textbf{Setup.} The tools and their versions: Docker, KIND, \code{kubectl},
-  Python 3.12, Bandit 1.9.4, CLDK, the MCP SDK, LangGraph, and your other
-  dependencies. List the environment variables that your stack reads, with
-  names only and never values.
-\item \textbf{The staff steps.} The exact commands, in order, from a fresh clone
-  to a finished run. The steps are below.
-\item \textbf{Durability.} The \code{durability} setting and the reason for it
-  (Section~\ref{sec:checkpoints}).
-\item \textbf{Configs.} One config for each target. The three configs are
-  identical except for \code{[scan]}.
-\item \textbf{The rubric index.} A table from each rubric criterion to the files
-  and the trace lines that give its evidence.
-\end{enumerate}
-
-\subsection{The staff steps}\label{sec:staffsteps}
-
-Your README tells staff how to do these seven steps:
-\begin{enumerate}
-\item Build each image with \code{docker build}. Supply one Dockerfile for each
-  image that you build, for example the agent and the MCP server.
-\item Load each image into the cluster with \code{kind load docker-image}. The
-  staff cluster cannot pull from a team registry.
-\item Make the two Secrets, for the team key and the Postgres password. No
-  committed file holds a key.
+\item Build each image with \code{docker build}, from one Dockerfile for each
+  image, for example the agent and the MCP server.
+\item Load each image with \code{kind load docker-image}. The staff cluster
+  cannot pull from a team registry.
+\item Make the two Secrets, for the team key and the Postgres password.
 \item Apply the manifests.
 \item Copy the pinned target source to the input PVC.
-\item Start a run. Give one command that reads the run ID from the environment
-  variable \code{HW3_RUN_ID} and applies the agent Job.
+\item Start a run with one command that reads \code{HW3_RUN_ID} and applies the
+  agent Job.
 \item Get \code{report.json}, \code{trace.jsonl}, and the ledger export.
 \end{enumerate}
 
-\textbf{Manifests.} Put plain Kubernetes YAML in a \file{k8s/} directory at the
-root of your repository. Use one of two forms:
+\textbf{Manifests.} Put plain Kubernetes YAML in \file{k8s/}, in one of two
+forms. Staff run \code{kubectl apply -f k8s/app.yaml} for one file, or
+\code{kubectl apply -k k8s/} for Kustomize. Staff do not accept Helm or other
+template tools. Keep the agent Job outside the main apply, for example in
+\file{k8s/run/agent-job.yaml}, because each run needs its own run ID. Supply the
+test Pod as \file{k8s/agent-test-pod.yaml}.
 
-\begin{center}
-\small
-\begin{tabularx}{\linewidth}{@{}lXl@{}}
-\toprule
-Form & Files & Command that staff run \\
-\midrule
-One file & \file{k8s/app.yaml}, with all objects and \code{---} between them & \code{kubectl apply -f k8s/app.yaml} \\
-Kustomize & Manifest files and a \file{k8s/kustomization.yaml} that lists them & \code{kubectl apply -k k8s/} \\
-\bottomrule
-\end{tabularx}
-\end{center}
+\textbf{Secrets.} Make them with \code{kubectl create secret generic} from
+environment variables that staff set. Or use a Kustomize \code{secretGenerator}
+that reads a git-ignored \file{k8s/.env}, and name its variables in the README.
 
-\begin{minted}{bash}
-kubectl apply -f k8s/app.yaml     # one file
-kubectl apply -k k8s/             # Kustomize
-\end{minted}
-
-Kustomize is part of \code{kubectl}, so staff need no other tool. With either
-form, you write each object in full. This table shows an example Kustomize
-layout. You can choose other file names.
-
-\begin{center}
-\small
-\begin{tabularx}{\linewidth}{@{}lX@{}}
-\toprule
-File & Objects in the file \\
-\midrule
-\file{k8s/kustomization.yaml} & The list of files, and an optional \code{secretGenerator} \\
-\file{k8s/postgres.yaml} & Postgres StatefulSet, headless Service, and the PVC template \\
-\file{k8s/mcp.yaml} & MCP server Deployment and Service, with the probes \\
-\file{k8s/config.yaml} & ConfigMap with \code{config.toml} \\
-\file{k8s/inputs.yaml} & Input PVC for the target source \\
-\file{k8s/networkpolicy.yaml} & NetworkPolicy for the agent Pod \\
-\file{k8s/agent-test-pod.yaml} & Test Pod for the two test commands (Section~\ref{sec:testcmds}) \\
-\file{k8s/run/agent-job.yaml} & Agent Job, with the init container, \code{securityContext}, and volumes \\
-\bottomrule
-\end{tabularx}
-\end{center}
-
-The agent Job is outside the main apply, because each run needs its own run ID
-(step 6).
-
-\textbf{Secrets.} Make the two Secrets in one of two ways. The first way is
-\code{kubectl create secret generic} in the README, from environment variables
-that staff set. The second way is a Kustomize \code{secretGenerator} that reads
-a git-ignored \file{k8s/.env}. If you use the second way, the README tells staff
-which variables to put in the file.
-
-\begin{minted}{bash}
-# Way 1: from environment variables that staff set
-kubectl create secret generic llm-key --from-literal=LLM_API_KEY="$LLM_API_KEY"
-kubectl create secret generic postgres --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
-
-# Way 2: k8s/kustomization.yaml reads k8s/.env, which git ignores
-#   secretGenerator:
-#     - name: llm-key
-#       envs: [.env]
-kubectl apply -k k8s/
-\end{minted}
-
-The secret names in this listing are examples. If staff cannot deploy your stack
-from the README, your team loses the build points of
+The README also states the \code{durability} setting and the reason for it
+(Section~\ref{sec:checkpoints}). It names one config for each target, identical
+except for \code{[scan]}. It ends with a rubric index: a table from each rubric
+criterion to the files and the trace lines that give its evidence. If staff
+cannot deploy your stack from the README, your team loses the build points of
 Section~\ref{sec:rubric}.
 
 \section{Cluster setup}\label{sec:cluster}
@@ -963,21 +756,19 @@ The lectures teach Jobs and Secrets on December 4. Until then, use this path:
 
 \subsection{Staff examples}\label{sec:examples}
 
-Staff supply two short manifests with a comment on each field. They show the
-pattern only. They are not the HW3 stack, and they do not use its names, images,
-or ports.
-
-\filelisting{\file{examples/k8s/statefulset.example.yaml}, a StatefulSet with a
-headless Service}{yaml}{../examples/k8s/statefulset.example.yaml}
-
-\filelisting{\file{examples/k8s/job-init.example.yaml}, a Job with an init
-container}{yaml}{../examples/k8s/job-init.example.yaml}
+Two staff manifests show the patterns, with a comment on each field.
+\file{examples/k8s/statefulset.example.yaml} shows a StatefulSet with a headless
+Service and \code{volumeClaimTemplates}. It is ready now.
+\file{examples/k8s/job-init.example.yaml} shows a Job with an init container
+that waits for a port, \code{restartPolicy: OnFailure}, and \code{backoffLimit}.
+It is ready by December 4. Neither example uses the names, images, or ports of
+the HW3 stack.
 
 \section{Deliverables}\label{sec:deliverables}
 \begin{itemize}
 \item All source code, a lockfile or equivalent that pins dependencies, and the
   commit of your HW2 baseline.
-\item The Dockerfiles and all the Kubernetes manifests (Section~\ref{sec:staffsteps}).
+\item The Dockerfiles and all the Kubernetes manifests (Section~\ref{sec:readme}).
 \item \code{README.md}, as Section~\ref{sec:readme} describes, with the staff
   steps and the rubric index.
 \item The unedited \code{report.json}, \code{trace.jsonl}, and ledger export for
