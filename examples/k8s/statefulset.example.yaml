@@ -1,0 +1,45 @@
+# Staff example. It shows the StatefulSet fields. It is not your stack.
+# A headless Service gives each Pod a stable DNS name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kv                    # Clients use this name: kv:6379.
+spec:
+  clusterIP: None             # None makes the Service headless. DNS returns the Pod address.
+  selector:
+    app: kv                   # Match the Pod label below.
+  ports:
+    - name: kv
+      port: 6379
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kv
+spec:
+  serviceName: kv             # Must name the headless Service above.
+  replicas: 1                 # One Pod. Its name is kv-0.
+  selector:
+    matchLabels:
+      app: kv
+  template:
+    metadata:
+      labels:
+        app: kv               # The Service selector matches this label.
+    spec:
+      containers:
+        - name: kv
+          image: redis:7.4-alpine   # Small image with a known version.
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data      # The image writes its data here.
+  volumeClaimTemplates:       # Each Pod gets its own claim. The claim stays after a Pod delete.
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]   # One node mounts the volume at a time.
+        resources:
+          requests:
+            storage: 1Gi                 # Enough for this example.

@@ -1,0 +1,10 @@
+# Staff cluster for local tests. Written for KIND v0.33.0.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  # Stays false until feasibility task 3 gives a result.
+  disableDefaultCNI: false
+nodes:
+  - role: control-plane
+    # Kubernetes 1.35.8 image from the KIND v0.33.0 release notes. The digest pins it.
+    image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0

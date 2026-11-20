@@ -1,0 +1,25 @@
+# Staff example. It shows a Job that waits for a service. It is not your stack.
+# The init container waits for kv:6379. The main container starts after the wait ends.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wait-then-run
+spec:
+  # backoffLimit counts failed Pods. After 10 failures the Job stops.
+  # (Kubernetes in Action, 2nd ed., p.641.)
+  # A Pod delete can count as a failure. A podFailurePolicy can change this
+  # (Kubernetes in Action, 2nd ed., p.643).
+  # Staff confirm this behavior by December 4.
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure      # Retry a failed container in the same Pod.
+      initContainers:
+        - name: wait-for-kv
+          image: busybox:1.37       # Small image that includes nc.
+          # Test the port every 2 seconds. Exit when the port accepts a connection.
+          command: ["sh", "-c", "until nc -z kv 6379; do echo waiting; sleep 2; done"]
+      containers:
+        - name: main
+          image: busybox:1.37
+          command: ["sh", "-c", "echo kv is ready"]   # Print one line and exit.
