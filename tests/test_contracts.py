@@ -1,5 +1,4 @@
 import copy, json, pathlib, tomllib, jsonschema, pytest
-from datetime import datetime
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 def schema(name): return json.loads((ROOT / f"{name}.schema.json").read_text())
 def validator(name): return jsonschema.Draft202012Validator(schema(name), format_checker=jsonschema.FormatChecker())
@@ -110,13 +109,13 @@ def test_resume_event_needs_fields():
         assert list(validator("trace").iter_errors({**event, key: value})), key
 
 def test_refused_by_kernel_rejected():
-    result = {"step": 1, "ts": "2026-12-01T10:00:00.000Z", "run_id": "run-001", "alert_id": None,
+    result = {"step": 1, "ts": 1796119200.0, "run_id": "run-001", "alert_id": None,
               "kind": "tool_result", "tool": "read_file", "ok": False, "error": "refused", "refused_by": "kernel"}
     assert list(validator("trace").iter_errors(result))
     assert not list(validator("trace").iter_errors({**result, "refused_by": "server"}))
 
 def test_via_codeact_rejected():
-    request = {"step": 1, "ts": "2026-12-01T10:00:00.000Z", "run_id": "run-001", "alert_id": None,
+    request = {"step": 1, "ts": 1796119200.0, "run_id": "run-001", "alert_id": None,
                "kind": "tool_request", "tool": "locate", "args": {}, "via": "codeact"}
     assert list(validator("trace").iter_errors(request))
 
@@ -156,7 +155,7 @@ def test_finished_row_needs_usage():
     assert list(validator("ledger").iter_errors({**started, "usage": row["usage"]}))
 
 def test_ledger_timestamps_go_up():
-    stamps = [datetime.fromisoformat(r["ts"]) for r in ledger_rows()]
+    stamps = [r["ts"] for r in ledger_rows()]
     assert stamps == sorted(stamps)
 
 def test_open_row_not_charged():

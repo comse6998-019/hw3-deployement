@@ -1,9 +1,9 @@
-{"call_id": "call-0001", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_started", "ts": "2026-12-01T10:00:02.000Z"}
-{"call_id": "call-0001", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_finished", "ts": "2026-12-01T10:00:05.000Z", "usage": {"input": 41200, "output": 900}}
-{"call_id": "call-0002", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_started", "ts": "2026-12-01T10:00:09.000Z"}
-{"call_id": "call-0003", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 2, "status": "call_started", "ts": "2026-12-01T10:01:45.000Z"}
-{"call_id": "call-0003", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 2, "status": "call_finished", "ts": "2026-12-01T10:01:50.000Z", "usage": {"input": 83000, "output": 1500, "cache_read": 20000}}
-{"call_id": "call-0004", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00074-py-51-B102", "attempt": 2, "status": "call_started", "ts": "2026-12-01T10:02:05.000Z"}
-{"call_id": "call-0004", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00074-py-51-B102", "attempt": 2, "status": "call_finished", "ts": "2026-12-01T10:02:10.000Z", "usage": {"input": 30620, "output": 480}}
-{"call_id": "call-0005", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00078-py-53-B301", "attempt": 2, "status": "call_started", "ts": "2026-12-01T10:02:15.000Z"}
-{"call_id": "call-0005", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00078-py-53-B301", "attempt": 2, "status": "call_finished", "ts": "2026-12-01T10:02:20.000Z", "usage": {"input": 140900, "output": 880}}
+{"call_id": "call-0001", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_started", "ts": 1796119202.0}
+{"call_id": "call-0001", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_finished", "ts": 1796119205.0, "usage": {"input": 41200, "output": 900}}
+{"call_id": "call-0002", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 1, "status": "call_started", "ts": 1796119209.0}
+{"call_id": "call-0003", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 2, "status": "call_started", "ts": 1796119305.0}
+{"call_id": "call-0003", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00073-py-54-B307", "attempt": 2, "status": "call_finished", "ts": 1796119310.0, "usage": {"input": 83000, "output": 1500, "cache_read": 20000}}
+{"call_id": "call-0004", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00074-py-51-B102", "attempt": 2, "status": "call_started", "ts": 1796119325.0}
+{"call_id": "call-0004", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00074-py-51-B102", "attempt": 2, "status": "call_finished", "ts": 1796119330.0, "usage": {"input": 30620, "output": 480}}
+{"call_id": "call-0005", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00078-py-53-B301", "attempt": 2, "status": "call_started", "ts": 1796119335.0}
+{"call_id": "call-0005", "run_id": "run-001", "alert_id": "owasp-BenchmarkTest00078-py-53-B301", "attempt": 2, "status": "call_finished", "ts": 1796119340.0, "usage": {"input": 140900, "output": 880}}
