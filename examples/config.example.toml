@@ -1,0 +1,33 @@
+[scan]
+paths = ["testcode/*.py"]
+exclude = []
+min_severity = "MEDIUM"
+bandit_version = "1.9.4"
+max_alerts = 500
+
+[model]
+provider = "openai-compatible"
+base_url = "https://llm.example.edu/v1"   # placeholder
+name = "model-name"                       # placeholder
+api_key_var = "LLM_API_KEY"               # the variable name, never the key
+
+[budget]
+max_tokens = 300000
+output_allowance = 1024
+max_steps = 400
+
+[run]
+id = "run-001"
+
+[checkpoint]
+durability = "sync"
+
+[postgres]
+host = "postgres"
+port = 5432
+database = "agent"
+user = "agent"
+password_var = "POSTGRES_PASSWORD"        # the variable name, never the password
+
+[mcp]
+url = "http://mcp:8000/mcp"

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/comse6998-019/hw3-deployement/config.schema.json",
+  "title": "HW3 config.toml",
+  "description": "Validates the config file your agent reads (--config), parsed from TOML to JSON. [scan] must equal one of the three staff blocks in briefs/scan/ exactly. The tables below have required keys. You may add other keys and tables for your own settings. Never put secrets in this file.",
+  "type": "object",
+  "required": [
+    "scan",
+    "model",
+    "budget",
+    "run",
+    "checkpoint",
+    "postgres",
+    "mcp"
+  ],
+  "properties": {
+    "scan": {
+      "description": "Exactly one of the blocks from briefs/scan/, unchanged.",
+      "enum": [
+        {
+          "paths": [
+            "testcode/*.py"
+          ],
+          "exclude": [],
+          "min_severity": "MEDIUM",
+          "bandit_version": "1.9.4",
+          "max_alerts": 500
+        },
+        {
+          "paths": [
+            "radicale"
+          ],
+          "exclude": [
+            "radicale/tests"
+          ],
+          "min_severity": "MEDIUM",
+          "bandit_version": "1.9.4",
+          "max_alerts": 500
+        },
+        {
+          "paths": [
+            "python/sglang/multimodal_gen/runtime",
+            "scripts/playground/replay_request_dump.py"
+          ],
+          "exclude": [],
+          "min_severity": "MEDIUM",
+          "bandit_version": "1.9.4",
+          "max_alerts": 500
+        }
+      ]
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "provider",
+        "base_url",
+        "name",
+        "api_key_var"
+      ],
+      "properties": {
+        "provider": {
+          "const": "openai-compatible",
+          "description": "HW3 uses an OpenAI-compatible endpoint."
+        },
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://",
+          "description": "The base URL of the university endpoint."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The exact model name, as your README states it."
+        },
+        "api_key_var": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "The name of the environment variable that holds the API key. Never the key."
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": [
+        "max_tokens",
+        "output_allowance",
+        "max_steps"
+      ],
+      "properties": {
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Token budget for the whole run, across all alerts: the sum of input + output over every model call."
+        },
+        "output_allowance": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Max output tokens for each model call, sent to the provider."
+        },
+        "max_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Failsafe on steps, separate from the token budget."
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$",
+          "description": "The checkpoint thread_id. Staff set it at grading."
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "required": [
+        "durability"
+      ],
+      "properties": {
+        "durability": {
+          "const": "sync",
+          "description": "Each checkpoint write completes before the next step."
+        }
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "database",
+        "user",
+        "password_var"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user": {
+          "type": "string",
+          "minLength": 1
+        },
+        "password_var": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "The name of the environment variable that holds the password. Never the password."
+        }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "The URL of the MCP Service, for example http://mcp:8000/mcp."
+        }
+      }
+    }
+  }
+}
