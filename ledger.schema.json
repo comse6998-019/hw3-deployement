@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/comse6998-019/hw3-deployement/ledger.schema.json",
+  "title": "HW3 ledger.jsonl row",
+  "description": "Validates ONE line of ledger.jsonl, the append-only record of model calls that survives a kill. The agent writes a call_started row before it sends a model request. It writes a call_finished row with the provider usage after the reply. Graders check the rules across lines. The ts field goes up from row to row. A call_id has one call_started row and at most one call_finished row. A call_started row with no call_finished row is open, and an open row is never charged. The budget charge is input + output summed over call_finished rows only. It equals report.json budget.used_tokens. Each call_finished row matches one model_call event in trace.jsonl with the same call_id and usage. The run_id is the run_id of report.json. The cache_read and cache_write counters are recorded when reported and never charged. Extra fields are allowed, except inside usage.",
+  "type": "object",
+  "required": [
+    "call_id",
+    "run_id",
+    "alert_id",
+    "attempt",
+    "status",
+    "ts"
+  ],
+  "properties": {
+    "call_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "alert_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "call_started",
+        "call_finished"
+      ]
+    },
+    "ts": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "usage": {
+      "$ref": "#/$defs/usage"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "call_finished"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "usage"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "call_started"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "usage"
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "usage": {
+      "description": "Token counters as the provider reported them. No summed total.",
+      "type": "object",
+      "required": [
+        "input",
+        "output"
+      ],
+      "properties": {
+        "input": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_write": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

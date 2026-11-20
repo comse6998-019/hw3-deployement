@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/comse6998-019/hw3-deployement/trace.schema.json",
+  "title": "HW3 trace.jsonl event",
+  "description": "Validates ONE line of trace.jsonl. Every line must validate. Graders check the rules across lines. Step starts at 1 and goes up by exactly 1. The first event is a resume with attempt 1. Each later resume has the attempt before it plus 1. A run that restarts has more than one resume before its one terminal event. The terminal event is last. Each usage_total counter equals the sum of that counter over all model_call events. The report.json budget.used_tokens equals the sum of input + output over them. A model_call call_id names one call_finished row in ledger.jsonl. A call with no call_finished row has no model_call event and no charge. Every report.json row has a state_change with its alert_id, alert_status and label. If an alert has two, one before a kill and one after the resume, the later one agrees with the earlier one and with the row. Every tool_request is immediately followed by its tool_result. Extra fields are allowed on any event, except inside usage and usage_total. HW3 adds the resume event. It marks the start of an attempt and carries attempt, checkpoint_id and next_alert_id. The checkpoint_id is null on attempt 1. The next_alert_id is null when no alert remains. The ts field is an RFC 3339 UTC string. The via field is mcp only, because HW3 has no CodeAct path. The refused_by field is dispatcher or server, because HW3 has no kernel. Every HW2 rule still holds, except as changed here.",
+  "type": "object",
+  "required": [
+    "step",
+    "ts",
+    "run_id",
+    "alert_id",
+    "kind"
+  ],
+  "properties": {
+    "step": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ts": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "alert_id": {
+      "description": "The alert this event belongs to, or null for a run-level event.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "model_call",
+        "tool_request",
+        "tool_result",
+        "routing",
+        "state_change",
+        "terminal",
+        "discovery",
+        "resume"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "model_call"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "role",
+          "model",
+          "usage"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usage": {
+            "$ref": "#/$defs/usage"
+          },
+          "call_id": {
+            "description": "The call_id of the matching call_finished row in ledger.jsonl.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "tool_request"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tool",
+          "args"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "object"
+          },
+          "via": {
+            "enum": [
+              "mcp"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "tool_result"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tool",
+          "ok"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string",
+            "minLength": 1
+          },
+          "via": {
+            "enum": [
+              "mcp"
+            ]
+          },
+          "refused_by": {
+            "enum": [
+              "dispatcher",
+              "server"
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "ok": {
+              "const": false
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "routing"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "decision",
+          "by"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "by": {
+            "enum": [
+              "model",
+              "runtime"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "state_change"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "node"
+        ],
+        "properties": {
+          "node": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alert_status": {
+            "enum": [
+              "classified",
+              "budget_exhausted",
+              "error"
+            ]
+          },
+          "label": {
+            "enum": [
+              0,
+              1,
+              null
+            ]
+          },
+          "checks": {
+            "$ref": "#/$defs/checks"
+          }
+        },
+        "dependentRequired": {
+          "alert_status": [
+            "label"
+          ],
+          "label": [
+            "alert_status"
+          ]
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "alert_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "alert_id": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "alert_status"
+              ],
+              "properties": {
+                "alert_status": {
+                  "const": "classified"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "label": {
+                  "enum": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "alert_status"
+              ],
+              "properties": {
+                "alert_status": {
+                  "enum": [
+                    "budget_exhausted",
+                    "error"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "label": {
+                  "const": null
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "terminal"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "status",
+          "usage_total"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usage_total": {
+            "$ref": "#/$defs/usage"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "discovery"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "server",
+          "tools"
+        ],
+        "properties": {
+          "server": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "resume"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "attempt",
+          "checkpoint_id",
+          "next_alert_id"
+        ],
+        "properties": {
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "checkpoint_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_alert_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "usage": {
+      "description": "Token counters as the provider reported them. No summed total.",
+      "type": "object",
+      "required": [
+        "input",
+        "output"
+      ],
+      "properties": {
+        "input": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_write": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "applies",
+        "touches_flagged_line",
+        "clean_rescan"
+      ],
+      "properties": {
+        "applies": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "touches_flagged_line": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "clean_rescan": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
