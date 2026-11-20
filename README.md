@@ -28,6 +28,7 @@ tectonic -X compile -Z shell-escape -Z shell-escape-cwd=. hw3.tex
 | `ledger.schema.json` | JSON Schema each line of your ledger export must validate against |
 | `cluster/kind-config.yaml` | The staff KIND cluster. Test your stack on it before you submit. |
 | `briefs/scan/` | The `[scan]` block for each target, and `counts.json` with the alert counts |
+| `tests/` | Staff checks of the schemas, the examples, the brief, and the scan counts |
 
 Examples, in `examples/`:
 
@@ -39,7 +40,18 @@ Examples, in `examples/`:
 - `k8s/job-init.example.yaml`: a Job with an init container that waits for a port.
 
 The two Kubernetes examples show patterns only. They are not the HW3 stack.
-Never put secrets in this file or in any file in your repository.
+Never put secrets in a config file or in any other file in your repository.
+
+## Running the staff tests
+
+The tests use Python 3.12. The scan-count tests clone each pinned target and
+run Bandit, so they need network access.
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install pytest jsonschema pyyaml bandit==1.9.4
+.venv/bin/pytest
+```
 
 ## Test on the staff cluster
 
@@ -61,7 +73,7 @@ commands, in order, from a fresh clone to a finished run (brief, Section
 3. Make the two Secrets, for the team key and the Postgres password. Use `kubectl create secret generic` from environment variables that staff set. Or use a Kustomize `secretGenerator` that reads a git-ignored `k8s/.env`. Never commit a Secret value.
 4. Apply the manifests. Use one file with `kubectl apply -f k8s/app.yaml`, or Kustomize with `kubectl apply -k k8s/`. Staff do not accept Helm.
 5. Copy the pinned target source to the input PVC.
-6. Start a run with one command that reads `HW3_RUN_ID` and applies the agent Job. Keep the Job outside the main apply, for example in `k8s/run/agent-job.yaml`.
+6. Start a run with one command that reads `HW3_RUN_ID` and applies the agent Job. Keep the Job outside the main apply, for example in `k8s/run/agent-job.yaml`. The same command writes `HW3_RUN_ID` into `[run] id` of the agent config. For example, run `sed` on the config, then `kubectl create configmap --from-file`.
 7. Get `report.json`, `trace.jsonl`, and the ledger export.
 
 The agent container runs a small init as PID 1. Your README names the command

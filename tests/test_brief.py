@@ -2,7 +2,7 @@ import json, pathlib, re
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Each "% OPEN:" comment names one value that has no result on the build day.
 # These are the rows of the open-values table in the Task 6 brief.
-OPEN_ROWS = {"feasibility task 2", "feasibility task 3", "feasibility task 5", "feasibility task 8"}
+OPEN_ROWS = {"feasibility task 2", "feasibility task 3", "feasibility task 4", "feasibility task 5", "feasibility task 8"}
 def brief(): return (ROOT / "briefs/hw3.tex").read_text()
 
 

@@ -169,9 +169,9 @@ image stays read-only, and the agent writes only to mounted volumes:
 \toprule
 Mount & Volume & Content \\
 \midrule
-\code{/work} & PVC & The disposable copy of the target, the patches, and the trace. A restart keeps them. \\
+\code{/work} & PVC & The disposable copy of the target for the tools, the patches, and the trace. A restart keeps them. \\
 \code{/tmp} & \code{emptyDir} & Scratch files. A Pod delete removes them. \\
-\code{/inputs} & Read-only PVC & The pinned target source. The agent copies the allowed files to \code{/work}. \\
+\code{/inputs} & Read-only PVC & The pinned target source. Bandit discovery scans it. The agent copies the allowed files to \code{/work}. \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -183,7 +183,7 @@ Pod delete (Section~\ref{sec:report}).
 
 \begin{itemize}
 \item \textbf{The agent is a Job, not a Deployment.} A batch run has an end. A
-  Deployment starts a new Pod each time the agent exits.
+  Deployment restarts the agent each time it exits.
 \item \textbf{\code{restartPolicy: OnFailure} and a \code{backoffLimit} of 10
   or more.} A process kill then restarts the container in the same Pod. The Job
   stops only after many failures.
@@ -207,6 +207,8 @@ Section~\ref{sec:cni} gives a deny-all check that you can run.
 The egress rule of the agent Pod allows only four destinations: the MCP server,
 Postgres, DNS, and the university endpoint. A NetworkPolicy has no hostname
 field. It selects Pods by label, and other hosts by IP block and port.
+% OPEN: feasibility task 4. The endpoint IP block has no result on the build day.
+Staff publish the endpoint CIDR by December 4.
 
 \begin{mustbox}{Deployment rules}
 \begin{itemize}
@@ -257,8 +259,8 @@ the rule.
 \code{[scan]} block}{toml}{scan/owasp-benchmark-python.toml}
 
 \textbf{The answer key.} OWASP's answer key, \code{expectedresults-0.1.csv}, is
-open to you and never to your agent, as in HW1 and HW2. In HW3, the answer key
-is not on \code{/inputs}.
+open to you and never to your agent, as in HW1 and HW2. Do not copy
+\code{expectedresults-0.1.csv} to \code{/inputs} or to \code{/work}.
 
 \textbf{Remediation.} The HW2 remediation rules are unchanged. The agent patches
 each alert that it labels 1. It accepts a patch only if the patch passes the
@@ -372,8 +374,9 @@ your-agent --config <file> --test-access-host <host:port>
 \end{minted}
 The scan command is the HW2 command. It writes \code{report.json} and
 \code{trace.jsonl} to the output directory, on the \code{/work} PVC. Inside the
-Pod, \code{--input} is the copy of the allowed files on \code{/work}, not
-\code{/inputs}. The two test commands are new (Section~\ref{sec:testcmds}).
+Pod, \code{--input} is \code{/inputs}, and Bandit discovery scans that tree. The
+tools and the patches use the copy of the allowed files on \code{/work}. The two
+test commands are new (Section~\ref{sec:testcmds}).
 
 \subsection{Config}\label{sec:config}
 
@@ -390,7 +393,7 @@ Key & Rule \\
 \code{model.provider} & \code{"openai-compatible"}. \\
 \code{model.base_url}, \code{model.name} & The university endpoint and the model name. \\
 \code{model.api_key_var} & The name of the environment variable that holds the key. Never the key. \\
-\code{[run] id} & A string: the checkpoint \code{thread_id}. Staff set it from \code{HW3_RUN_ID} at each run. \\
+\code{[run] id} & A string: the checkpoint \code{thread_id}. The run command writes it from \code{HW3_RUN_ID} at each run (Section~\ref{sec:readme}). \\
 \code{[checkpoint] durability} & \code{"sync"}. \\
 \code{[postgres]} & \code{host}, \code{port}, \code{database}, \code{user}, and \code{password_var}. \code{password_var} names an environment variable. \\
 \code{[mcp] url} & The URL of the MCP Service, for example \code{http://mcp:8000/mcp}. \\
@@ -408,8 +411,9 @@ with placeholders for the base URL and the model name.
 \code{report.json} keeps the HW2 rules, with three changes:
 \begin{itemize}
 \item A top-level \code{run_id} holds the same string as \code{[run] id}.
-\item \code{alert_id} keeps its HW1 form and is unique across rows. The agent
-  scans the read-only \code{/inputs} copy, so the IDs do not change during a run.
+\item \code{alert_id} keeps its HW1 form and is unique across rows. Bandit
+  discovery scans the read-only \code{/inputs} tree, so the IDs do not change
+  during a run.
 \item \code{len(alerts)} equals \code{scan.alert_count}, the count after the cap.
 \end{itemize}
 \file{examples/report.example.json} shows a cut-down run with 3 OWASP rows.
@@ -424,6 +428,9 @@ HW2 event kinds and fields hold. These are the changes:
   as the first event of the attempt. Its fields are \code{attempt} (1 at the
   first start), \code{checkpoint_id} (\code{null} at the first start), and
   \code{next_alert_id} (\code{null} if no alert remains).
+\item \textbf{\code{discovery}.} The MCP host writes at most one
+  \code{discovery} event in each attempt, after \code{tools/list}. A restarted
+  process calls \code{tools/list} again.
 \item \textbf{\code{call_id}.} Each \code{model_call} event carries the ledger
   \code{call_id} of the call.
 \item \textbf{\code{via}.} Its only value is \code{mcp}, because HW3 has no
@@ -440,9 +447,11 @@ These are the changed and new invariants:
   run, and it is the last line. A killed attempt writes no \code{terminal} event.
 \item \textbf{Invariant 5.} Work after the last checkpoint can repeat, and the
   trace keeps both copies. The grader counts the repeated work. An alert can
-  have more than one \code{state_change} event with \code{alert_status}. Each
-  one must agree with the last one for that alert, and the last one must agree
-  with the row.
+  have more than one \code{state_change} event with \code{alert_status}. Only
+  the last one for that alert must match the row.
+\item \textbf{Invariant 6.} Inside an attempt, each \code{tool_request} is
+  immediately followed by its \code{tool_result}. A kill during a tool call ends
+  the attempt, so a \code{resume} can directly follow a \code{tool_request}.
 \item \textbf{Invariant 7 (new).} The first event of each attempt is
   \code{resume}. The first \code{resume} has \code{attempt} 1. Each later
   \code{resume} has the \code{attempt} before it plus 1.
@@ -681,7 +690,9 @@ gives the exact commands, in order, so that staff can do these steps:
 \item Apply the manifests.
 \item Copy the pinned target source to the input PVC.
 \item Start a run with one command that reads \code{HW3_RUN_ID} and applies the
-  agent Job.
+  agent Job. The command writes \code{HW3_RUN_ID} into \code{[run] id} of the
+  config, for example with \code{sed} and
+  \code{kubectl create configmap --from-file}.
 \item Get \code{report.json}, \code{trace.jsonl}, and the ledger export.
 \end{enumerate}
 
@@ -698,10 +709,10 @@ that reads a git-ignored \file{k8s/.env}, and name its variables in the README.
 
 The README also states the \code{durability} setting and the reason for it
 (Section~\ref{sec:checkpoints}). It names one config for each target, identical
-except for \code{[scan]}. It ends with a rubric index: a table from each rubric
+except for \code{[scan]} and \code{[run] id}. It ends with a rubric index: a table from each rubric
 criterion to the files and the trace lines that give its evidence. If staff
-cannot deploy your stack from the README, your team loses the build points of
-Section~\ref{sec:rubric}.
+cannot deploy your stack from the README, your team loses the 3 points for the
+deployment in ``Evidence and reproducibility'' (Section~\ref{sec:rubric}).
 
 \section{Cluster setup}\label{sec:cluster}
 

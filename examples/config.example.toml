@@ -12,12 +12,12 @@ name = "model-name"                       # placeholder
 api_key_var = "LLM_API_KEY"               # the variable name, never the key
 
 [budget]
-max_tokens = 300000
+max_tokens = 300000                       # placeholder: the HW2 value, too low for a full run
 output_allowance = 1024
 max_steps = 400
 
 [run]
-id = "run-001"
+id = "run-001"                            # the run command writes HW3_RUN_ID here
 
 [checkpoint]
 durability = "sync"

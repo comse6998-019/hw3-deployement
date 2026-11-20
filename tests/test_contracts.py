@@ -73,6 +73,14 @@ def open_rows(ledger):
 def finished_tokens(ledger):
     return sum(r["usage"]["input"] + r["usage"]["output"] for r in ledger if r["status"] == "call_finished")
 
+def attempt_of(events):
+    # The attempt of each event: the attempt of the last resume at or before it.
+    out, cur = [], None
+    for e in events:
+        cur = e["attempt"] if e["kind"] == "resume" else cur
+        out.append(cur)
+    return out
+
 def check_trace(events, report=None):
     report = report or load_report()
     assert [e["step"] for e in events] == list(range(1, len(events) + 1)), "steps"
@@ -83,19 +91,35 @@ def check_trace(events, report=None):
     calls = [e["usage"] for e in events if e["kind"] == "model_call"]
     total = events[-1]["usage_total"]
     assert total == {k: sum(u.get(k, 0) for u in calls) for k in set(total).union(*calls)}, "usage"
+    found = [a for a, e in zip(attempt_of(events), events) if e["kind"] == "discovery"]
+    assert len(found) == len(set(found)), "one discovery per attempt"
     for i, e in enumerate(events):
         if e["kind"] == "tool_request":
+            # A kill during a tool call ends the attempt, so a resume can come next.
             nxt = events[i + 1]
-            assert nxt["kind"] == "tool_result" and nxt["tool"] == e["tool"], e["step"]
+            assert nxt["kind"] == "resume" or (nxt["kind"] == "tool_result" and nxt["tool"] == e["tool"]), e["step"]
     for row in report["alerts"]:
         mine = [e for e in events if e["alert_id"] == row["alert_id"] and e["kind"] == "state_change"]
         final = [e for e in mine if "alert_status" in e]
         assert final, row["alert_id"]
-        assert all((e["alert_status"], e["label"]) == (final[0]["alert_status"], final[0]["label"]) for e in final)
+        # Earlier finalizing events are repeats. Only the last one must match the row.
         assert (final[-1]["alert_status"], final[-1]["label"]) == (row["status"], row["label"]), row["alert_id"]
         fixes = [e for e in mine if "alert_status" not in e]
         assert fixes and fixes[-1]["checks"] == row["remediation"]["checks"], row["alert_id"]
 
+def check_ledger(rows, events):
+    started, finished = {}, {}
+    for i, r in enumerate(rows):
+        seen = started if r["status"] == "call_started" else finished
+        assert r["call_id"] not in seen, ("two rows", r["status"], r["call_id"])
+        seen[r["call_id"]] = i
+    for cid, i in finished.items():
+        assert cid in started and started[cid] < i, ("finished before started", cid)
+        assert rows[started[cid]]["attempt"] == rows[i]["attempt"], ("attempt", cid)
+    by_id = {r["call_id"]: r for r in rows}
+    for a, e in zip(attempt_of(events), events):
+        if e["kind"] == "model_call":
+            assert by_id[e["call_id"]]["attempt"] == a, ("trace attempt", e["call_id"])
 
 def test_trace_lines_validate():
     for e in trace_events(): validator("trace").validate(e)
@@ -136,14 +160,33 @@ def test_cross_line_rules_catch_breaks():
     for bad in (gap, no_end, skip, wrong, status):
         with pytest.raises(AssertionError): check_trace(bad)
 
-def test_later_finalizing_event_must_agree_with_earlier_one():
-    ev = trace_events()
-    first = next(e for e in ev if e.get("alert_status") == "classified")
-    def with_repeat(repeat):
-        return ev[:-1] + [{**repeat, "step": len(ev)}, {**ev[-1], "step": len(ev) + 1}]
-    check_trace(with_repeat(first))
-    with pytest.raises(AssertionError): check_trace(with_repeat({**first, "label": 0}))
+def renumber(events):
+    return [{**e, "step": n} for n, e in enumerate(events, 1)]
 
+def test_only_last_finalizing_event_must_match_row():
+    ev = trace_events()
+    i, first = next((i, e) for i, e in enumerate(ev) if e.get("alert_status") == "classified")
+    check_trace(renumber(ev[:i] + [{**first, "label": 0}] + ev[i:]))
+    with pytest.raises(AssertionError): check_trace(renumber(ev[:-1] + [{**first, "label": 0}, ev[-1]]))
+
+def test_kill_during_tool_call_resume_follows_request():
+    ev = trace_events()
+    i = next(i for i, e in enumerate(ev) if e["kind"] == "tool_request")
+    assert ev[i + 2]["kind"] == "resume"
+    check_trace(renumber(ev[:i + 1] + ev[i + 2:]))
+
+def test_tool_request_followed_by_other_event_fails():
+    ev = trace_events()
+    i = next(i for i, e in enumerate(ev) if e["kind"] == "tool_request")
+    call = next(e for e in ev if e["kind"] == "model_call")
+    bad = renumber(ev[:i + 1] + [{**call, "usage": {"input": 0, "output": 0}}] + ev[i + 2:])
+    with pytest.raises(AssertionError): check_trace(bad)
+
+def test_one_discovery_per_attempt():
+    ev = trace_events()
+    assert [e["kind"] for e in ev].count("discovery") == 2
+    i = next(i for i, e in enumerate(ev) if e["kind"] == "discovery")
+    with pytest.raises(AssertionError): check_trace(renumber(ev[:i + 1] + [ev[i]] + ev[i + 1:]))
 
 def test_ledger_lines_validate():
     for r in ledger_rows(): validator("ledger").validate(r)
@@ -172,3 +215,18 @@ def test_finished_rows_pair_with_model_calls():
     assert sorted(e["call_id"] for e in calls) == sorted(done)
     assert all(done[e["call_id"]] == e["usage"] for e in calls)
     assert not {r["call_id"] for r in open_rows(ledger_rows())} & set(done)
+
+def test_ledger_example_meets_cross_line_rules(): check_ledger(ledger_rows(), trace_events())
+
+def test_ledger_rules_catch_breaks():
+    led, ev = ledger_rows(), trace_events()
+    first_done = next(i for i, r in enumerate(led) if r["status"] == "call_finished")
+    two_starts = led + [copy.deepcopy(led[0])]
+    two_ends = led + [copy.deepcopy(led[first_done])]
+    early = [led[first_done]] + [r for i, r in enumerate(led) if i != first_done]
+    orphan = [r for i, r in enumerate(led) if i != first_done - 1]
+    attempt = copy.deepcopy(led)
+    for r in attempt:
+        if r["call_id"] == "call-0003": r["attempt"] = 1
+    for bad in (two_starts, two_ends, early, orphan, attempt):
+        with pytest.raises(AssertionError): check_ledger(bad, ev)
