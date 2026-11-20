@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.aux
+*.log
+*.out
+*.synctex.gz
+_minted*/
+.pytest_cache/
+.env
+k8s/.env
+*.pyg
+*.xdv

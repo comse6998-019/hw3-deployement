@@ -1,0 +1,7 @@
+[scan]
+paths = ["python/sglang/multimodal_gen/runtime",
+         "scripts/playground/replay_request_dump.py"]
+exclude = []
+min_severity = "MEDIUM"
+bandit_version = "1.9.4"
+max_alerts = 500
