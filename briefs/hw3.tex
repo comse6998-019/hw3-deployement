@@ -216,6 +216,8 @@ field. It selects Pods by label, and other hosts by IP block and port.
 \item No committed file holds a Secret value.
 \item The agent runs as a Job.
 \item The root file system of the agent container is read-only.
+\item The agent is not PID 1 in its container. A small init is PID 1
+  (Section~\ref{sec:killmethods}).
 \end{itemize}
 \end{mustbox}
 
@@ -437,9 +439,10 @@ These are the changed and new invariants:
 \item \textbf{Invariant 3.} There is exactly one \code{terminal} event in the
   run, and it is the last line. A killed attempt writes no \code{terminal} event.
 \item \textbf{Invariant 5.} Work after the last checkpoint can repeat, and the
-  trace keeps both copies. The grader counts the repeated work. An alert can have more than one \code{state_change}
-  event with \code{alert_status}. Each one must agree with the last one for that
-  alert, and the last one must agree with the row.
+  trace keeps both copies. The grader counts the repeated work. An alert can
+  have more than one \code{state_change} event with \code{alert_status}. Each
+  one must agree with the last one for that alert, and the last one must agree
+  with the row.
 \item \textbf{Invariant 7 (new).} The first event of each attempt is
   \code{resume}. The first \code{resume} has \code{attempt} 1. Each later
   \code{resume} has the \code{attempt} before it plus 1.
@@ -551,10 +554,16 @@ MCP Pod delete: \code{kubectl delete pod <mcp pod>} & The Deployment makes a new
 \end{tabularx}
 \end{center}
 
-% OPEN: feasibility task 5. The PID of the agent for kill -9 has no result on the build day.
-The process kill names \code{<agent pid>}. The kernel ignores a \code{SIGKILL}
-that a process in the container sends to PID 1. \code{kill -9 1} works only if the
-agent is not PID 1. Staff publish the exact command by December 4.
+% OPEN: feasibility task 5. Staff confirm the init and the container restart on KIND by December 4.
+The agent must not run as PID 1 in its container. Run a small init as PID 1,
+for example \code{tini} or \code{dumb-init} as the image \code{ENTRYPOINT}.
+The agent runs as its child. Staff kill the agent with
+\code{kubectl exec <agent pod> -- kill -9 <agent pid>}. The init then exits
+with a non-zero code, and Kubernetes restarts the container.
+
+\code{kill -9 1} does not work. The kernel ignores a \code{SIGKILL} that a
+process in the container sends to PID 1. Your README names the command that
+finds \code{<agent pid>}, for example \code{pgrep -f <your command>}.
 
 \subsection{Schedule}\label{sec:schedule}
 
@@ -735,8 +744,8 @@ kubectl delete pod/probe networkpolicy/deny-all-egress
 \end{minted}
 
 Start the check only after \code{kubectl wait} succeeds. Before that, a
-failure of \code{kubectl exec} is not a denial. The \code{nc} command must fail. A DNS failure is also a denial, because the
-policy denies DNS too.
+failure of \code{kubectl exec} is not a denial. The \code{nc} command must
+fail. A DNS failure is also a denial, because the policy denies DNS too.
 
 \subsection{Resources}\label{sec:resources}
 
